@@ -6,7 +6,7 @@ This repository contains **Dockerfile** of [Ubuntu](http://www.ubuntu.com/) for 
 
 ### Base Docker Image
 
-* [ubuntu:14.04](https://registry.hub.docker.com/u/library/ubuntu/)
+* [ubuntu:16.04](https://registry.hub.docker.com/u/library/ubuntu/)
 
 
 ### Installation
@@ -20,4 +20,4 @@ This repository contains **Dockerfile** of [Ubuntu](http://www.ubuntu.com/) for 
 
 ### Usage
 
-    docker run -it --rm dockerfile/ubuntu
+    docker run -it --rm psaavedra/ubuntu-wordpress
