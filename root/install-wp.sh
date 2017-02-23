@@ -1,18 +1,14 @@
 #! /bin/bash -x
 
-WP_DOMAIN="wp.cdticvirtual.xunta.es"
+WP_DOMAIN="cdticvirtual.xunta.es"
 WP_PATH="/var/www/wordpress"
 WP_ADMIN_USERNAME="admin"
-# WP_ADMIN_PASSWORD="$(pwgen -1 -s 12)"
-WP_ADMIN_PASSWORD="admin"
+WP_LANG="gl_ES"
 WP_ADMIN_EMAIL="noreply@cdticvirtual.xunta.es"
 WP_DB_NAME="wordpress"
 WP_DB_PASSWORD="$(pwgen -1 -s 12)"
 MYSQL_ROOT_PASSWORD="$(pwgen -1 -s 12)"
 
-echo "127.0.0.1 $WP_DOMAIN" >> /etc/hosts
-
-apt-get update
 
 ###############################################################################
 # Install mysql
@@ -23,43 +19,12 @@ apt install -y nginx php php-mysql php-curl php-gd mysql-server php7.0-fpm
 
 service mysql stop
 service mysql start
-service php7.0-fpm stop
-service php7.0-fpm start
 
 mysql -u root -p$MYSQL_ROOT_PASSWORD <<EOF
 CREATE USER '$WP_DB_USERNAME'@'localhost' IDENTIFIED BY '$WP_DB_PASSWORD';
 CREATE DATABASE $WP_DB_NAME;
 GRANT ALL ON $WP_DB_NAME.* TO '$WP_DB_USERNAME'@'localhost';
 EOF
-
-###############################################################################
-# Install nginx
-mkdir -p $WP_PATH/public $WP_PATH/logs
-tee /etc/nginx/sites-available/$WP_DOMAIN <<EOF
-server {
-  listen 80;
-  server_name $WP_DOMAIN www.$WP_DOMAIN;
-
-  root $WP_PATH/public;
-  index index.php;
-
-  access_log $WP_PATH/logs/access.log;
-  error_log $WP_PATH/logs/error.log;
-
-  location / {
-    try_files \$uri \$uri/ /index.php?\$args;
-  }
-
-  location ~ \.php\$ {
-    include snippets/fastcgi-php.conf;
-    fastcgi_pass unix:/run/php/php7.0-fpm.sock;
-  }
-}
-EOF
-
-ln -s /etc/nginx/sites-available/$WP_DOMAIN /etc/nginx/sites-enabled/$WP_DOMAIN
-rm -f /etc/nginx/sites-enabled/default
-service nginx restart
 
 ###############################################################################
 # Install WordPress
@@ -78,25 +43,41 @@ sed -i s/username_here/$WP_DB_USERNAME/ wp-config.php
 sed -i s/password_here/$WP_DB_PASSWORD/ wp-config.php
 echo "define('FS_METHOD', 'direct');" >> wp-config.php
 
-chown -R www-data:www-data $WP_PATH/public/
+cat << EOF >> wp-config.php
+if(\$_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https'){
+    \$_SERVER['HTTPS'] = 'on';
+	  \$_SERVER['SERVER_PORT'] = 443;
+}
+EOF
 
 
 ##############################################################################
-# Final test
-curl "http://$WP_DOMAIN/wp-admin/install.php?step=2" \
-	  --data-urlencode "weblog_title=$WP_DOMAIN"\
-    --data-urlencode "user_name=$WP_ADMIN_USERNAME" \
-	  --data-urlencode "admin_email=$WP_ADMIN_EMAIL" \
-	  --data-urlencode "admin_password=$WP_ADMIN_PASSWORD" \
-	  --data-urlencode "admin_password2=$WP_ADMIN_PASSWORD" \
-	  --data-urlencode "pw_weak=1"
+# Install woocommerce plugin
+cd $WP_PATH/public/wp-content/plugins
+wget -O woocommerce-2.6.14.zip https://github.com/woocommerce/woocommerce/archive/2.6.14.zip
+unzip  woocommerce-2.6.14.zip 
+rm -f woocommerce-2.6.14.zip
+mv woocommerce-* woocommerce
+
+##############################################################################
+mv /root/header.jpg /var/www/wordpress/public/wp-content/themes/twentyseventeen/assets/images/header.jpg
+
+##############################################################################
+# Set permissions
+chown -R www-data:www-data $WP_PATH/public/
 
 apt-get clean
 
-cat << EOF
-WP_DOMAIN=${WP_DOMAIN}
+##############################################################################
+tee /etc/wp_setup.env << EOF
+if [ -z \${WP_NAME} ]
+then
+  WP_DOMAIN=${WP_DOMAIN}
+else
+  WP_DOMAIN=\${WP_NAME}.${WP_DOMAIN}
+fi
+WP_LANG=${WP_LANG}
 WP_ADMIN_USERNAME=${WP_ADMIN_USERNAME}
-WP_ADMIN_PASSWORD=${WP_ADMIN_PASSWORD}
 WP_ADMIN_EMAIL=${WP_ADMIN_EMAIL}
 WP_DB_NAME=${WP_DB_NAME}
 WP_DB_PASSWORD=${WP_DB_PASSWORD}
@@ -104,4 +85,11 @@ WP_PATH=${WP_PATH}
 MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 EOF
 
+##############################################################################
+tee /etc/rc.local << EOF
+#!/bin/sh -e
+/root/setup-wp.sh
+/bin/bash
+EOF
 
+chmod +x /etc/rc.local
