@@ -47,14 +47,20 @@ service nginx start
 
 ##############################################################################
 # Wordpress setup
+WP_SUBMIT="Instalar WordPress"
+
+curl "http://$WP_DOMAIN/wp-admin/install.php?step=1" --data-urlencode "language=$WP_LANG"
 curl "http://$WP_DOMAIN/wp-admin/install.php?step=2" \
-	  --data-urlencode "weblog_title=$WP_DOMAIN"\
-    --data-urlencode "user_name=$WP_ADMIN_USERNAME" \
+	  --data-urlencode "weblog_title=$WP_DOMAIN" \
+	  --data-urlencode "user_name=$WP_ADMIN_USERNAME" \
 	  --data-urlencode "admin_email=$WP_ADMIN_EMAIL" \
 	  --data-urlencode "admin_password=$WP_ADMIN_PASSWORD" \
 	  --data-urlencode "admin_password2=$WP_ADMIN_PASSWORD" \
+	  --data-urlencode "pass1-text=$WP_ADMIN_PASSWORD" \
 	  --data-urlencode "language=$WP_LANG" \
-	  --data-urlencode "pw_weak=1"
+	  --data-urlencode "Submit=$WP_SUBMIT" \
+	  --data-urlencode "pw_weak=on"
+
 
 ###############################################################################
 # Activate authentication nginx
@@ -77,7 +83,7 @@ server {
   }
 
   location ~ \.php\$ {
-	  auth_basic "$WP_DOMAIN authentication user";                  
+    auth_basic "$WP_DOMAIN authentication user";                  
     auth_basic_user_file /etc/nginx/htpasswd; 
 
     include snippets/fastcgi-php.conf;

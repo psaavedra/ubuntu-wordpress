@@ -41,15 +41,17 @@ mv wp-config-sample.php wp-config.php
 sed -i s/database_name_here/$WP_DB_NAME/ wp-config.php
 sed -i s/username_here/$WP_DB_USERNAME/ wp-config.php
 sed -i s/password_here/$WP_DB_PASSWORD/ wp-config.php
+sed -i 's/require_once/# require_once/' wp-config.php
 echo "define('FS_METHOD', 'direct');" >> wp-config.php
 
 cat << EOF >> wp-config.php
 if(\$_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https'){
     \$_SERVER['HTTPS'] = 'on';
-	  \$_SERVER['SERVER_PORT'] = 443;
+    \$_SERVER['SERVER_PORT'] = 443;
 }
 EOF
 
+echo "require_once(ABSPATH . 'wp-settings.php');" >> wp-config.php
 
 ##############################################################################
 # Install woocommerce plugin
